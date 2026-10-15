@@ -56,6 +56,53 @@ button:hover {
     color: #25e5ff;
 }
 
+#snakeScreen {
+    display: none;
+    max-width: 440px;
+    margin: auto;
+}
+
+#snakeScreen h1 {
+    color: #16803d;
+}
+
+#snakeCanvas {
+    display: block;
+    width: 100%;
+    max-width: 360px;
+    height: auto;
+    margin: 15px auto;
+    border: 3px solid #14532d;
+    border-radius: 12px;
+    background: #f0fdf4;
+    touch-action: none;
+}
+
+#snakeScore {
+    font-size: 24px;
+    font-weight: bold;
+    color: #14532d;
+}
+
+.snake-controls {
+    display: grid;
+    grid-template-columns: repeat(3, 58px);
+    justify-content: center;
+    gap: 5px;
+    margin: 8px auto 14px;
+}
+
+.snake-controls button {
+    margin: 0;
+    padding: 12px 0;
+    min-height: 44px;
+    background: #15803d;
+}
+
+.snake-controls button:hover {
+    background: #16a34a;
+}
+
 #gameCanvas {
     display: block;
     width: 100%;
@@ -124,6 +171,12 @@ button:hover {
     <button onclick="openGame()">
         🚀 PLAY LAGFACTORY MULTIVERSE
     </button>
+
+    <br>
+
+    <button onclick="openSnake()">
+        🐍 PLAY SNAKE
+    </button>
 </div>
 
 <!-- ================= GAME SCREEN ================= -->
@@ -140,6 +193,26 @@ button:hover {
     </p>
 
     <button onclick="startGame()">▶ Restart Game</button>
+    <button onclick="goHome()">🏠 Back to Homepage</button>
+</div>
+
+<!-- ================= SNAKE GAME SCREEN ================= -->
+<div id="snakeScreen">
+    <h1>🐍 Lagfactory Snake</h1>
+    <div id="snakeScore">Score: 0</div>
+    <canvas id="snakeCanvas" width="360" height="520"></canvas>
+    <p id="snakeInstructions">Use the arrow keys or WASD to move. Eat the red food!</p>
+
+    <div class="snake-controls" aria-label="Snake direction controls">
+        <span></span>
+        <button onclick="setSnakeDirection('up')" aria-label="Move up">⬆️</button>
+        <span></span>
+        <button onclick="setSnakeDirection('left')" aria-label="Move left">⬅️</button>
+        <button onclick="setSnakeDirection('down')" aria-label="Move down">⬇️</button>
+        <button onclick="setSnakeDirection('right')" aria-label="Move right">➡️</button>
+    </div>
+
+    <button onclick="startSnake()">▶ Restart Snake</button>
     <button onclick="goHome()">🏠 Back to Homepage</button>
 </div>
 
@@ -249,6 +322,7 @@ function openGame() {
 
 function goHome() {
     running = false;
+    stopSnakeTimer();
 
     if (animationId !== null) {
         cancelAnimationFrame(animationId);
@@ -256,6 +330,7 @@ function goHome() {
     }
 
     document.getElementById("gameScreen").style.display = "none";
+    document.getElementById("snakeScreen").style.display = "none";
     document.getElementById("homeScreen").style.display = "block";
 
     document.body.style.background =
@@ -917,6 +992,199 @@ function endGame() {
         "Final score: " + score + " — restart to play again!";
 
     draw();
+}
+
+// ============================================
+// LAGFACTORY SNAKE GAME
+// ============================================
+
+const snakeCanvas = document.getElementById("snakeCanvas");
+const snakeCtx = snakeCanvas.getContext("2d");
+const SNAKE_CELL = 20;
+const SNAKE_COLS = snakeCanvas.width / SNAKE_CELL;
+const SNAKE_ROWS = snakeCanvas.height / SNAKE_CELL;
+let snake = [];
+let snakeFood = { x: 10, y: 10 };
+let snakeDirection = "right";
+let nextSnakeDirection = "right";
+let snakePoints = 0;
+let snakeTimer = null;
+let snakeOver = false;
+
+function openSnake() {
+    running = false;
+    if (animationId !== null) {
+        cancelAnimationFrame(animationId);
+        animationId = null;
+    }
+    document.getElementById("homeScreen").style.display = "none";
+    document.getElementById("gameScreen").style.display = "none";
+    document.getElementById("snakeScreen").style.display = "block";
+    startSnake();
+}
+
+function stopSnakeTimer() {
+    if (snakeTimer !== null) {
+        clearInterval(snakeTimer);
+        snakeTimer = null;
+    }
+}
+
+function startSnake() {
+    stopSnakeTimer();
+    snake = [
+        { x: 8, y: 13 },
+        { x: 7, y: 13 },
+        { x: 6, y: 13 }
+    ];
+    snakeDirection = "right";
+    nextSnakeDirection = "right";
+    snakePoints = 0;
+    snakeOver = false;
+    placeSnakeFood();
+    document.getElementById("snakeScore").textContent = "Score: 0";
+    document.getElementById("snakeInstructions").textContent =
+        "Use the arrow keys or WASD to move. Eat the red food!";
+    drawSnakeGame();
+    snakeTimer = setInterval(snakeTick, 125);
+}
+
+function placeSnakeFood() {
+    let candidate;
+    do {
+        candidate = {
+            x: Math.floor(Math.random() * SNAKE_COLS),
+            y: Math.floor(Math.random() * SNAKE_ROWS)
+        };
+    } while (snake.some(part => part.x === candidate.x && part.y === candidate.y));
+    snakeFood = candidate;
+}
+
+function setSnakeDirection(direction) {
+    if (snakeOver) return;
+    const opposite = {
+        up: "down",
+        down: "up",
+        left: "right",
+        right: "left"
+    };
+    if (direction !== opposite[snakeDirection]) {
+        nextSnakeDirection = direction;
+    }
+}
+
+document.addEventListener("keydown", function(e) {
+    if (document.getElementById("snakeScreen").style.display === "none") return;
+
+    const key = e.key.toLowerCase();
+    const directions = {
+        arrowup: "up", w: "up",
+        arrowdown: "down", s: "down",
+        arrowleft: "left", a: "left",
+        arrowright: "right", d: "right"
+    };
+
+    if (directions[key]) {
+        e.preventDefault();
+        setSnakeDirection(directions[key]);
+    }
+});
+
+function snakeTick() {
+    if (snakeOver) return;
+    snakeDirection = nextSnakeDirection;
+
+    const head = { ...snake[0] };
+    if (snakeDirection === "up") head.y--;
+    if (snakeDirection === "down") head.y++;
+    if (snakeDirection === "left") head.x--;
+    if (snakeDirection === "right") head.x++;
+
+    const eating = head.x === snakeFood.x && head.y === snakeFood.y;
+    const bodyToCheck = eating ? snake : snake.slice(0, -1);
+    const hitWall = head.x < 0 || head.x >= SNAKE_COLS || head.y < 0 || head.y >= SNAKE_ROWS;
+    const hitSelf = bodyToCheck.some(part => part.x === head.x && part.y === head.y);
+
+    if (hitWall || hitSelf) {
+        snakeOver = true;
+        stopSnakeTimer();
+        document.getElementById("snakeInstructions").textContent =
+            "Game over! Your score was " + snakePoints + ". Press Restart Snake to try again.";
+        drawSnakeGame();
+        return;
+    }
+
+    snake.unshift(head);
+    if (eating) {
+        snakePoints++;
+        document.getElementById("snakeScore").textContent = "Score: " + snakePoints;
+        if (snake.length === SNAKE_COLS * SNAKE_ROWS) {
+            snakeOver = true;
+            stopSnakeTimer();
+            document.getElementById("snakeInstructions").textContent = "You filled the whole board! You win!";
+        } else {
+            placeSnakeFood();
+        }
+    } else {
+        snake.pop();
+    }
+    drawSnakeGame();
+}
+
+function drawSnakeGame() {
+    snakeCtx.fillStyle = "#f0fdf4";
+    snakeCtx.fillRect(0, 0, snakeCanvas.width, snakeCanvas.height);
+
+    // Light grid lines make the board easy to read.
+    snakeCtx.strokeStyle = "#dcfce7";
+    snakeCtx.lineWidth = 1;
+    for (let x = 0; x <= snakeCanvas.width; x += SNAKE_CELL) {
+        snakeCtx.beginPath();
+        snakeCtx.moveTo(x, 0);
+        snakeCtx.lineTo(x, snakeCanvas.height);
+        snakeCtx.stroke();
+    }
+    for (let y = 0; y <= snakeCanvas.height; y += SNAKE_CELL) {
+        snakeCtx.beginPath();
+        snakeCtx.moveTo(0, y);
+        snakeCtx.lineTo(snakeCanvas.width, y);
+        snakeCtx.stroke();
+    }
+
+    // Food
+    snakeCtx.fillStyle = "#ef4444";
+    snakeCtx.beginPath();
+    snakeCtx.arc(
+        snakeFood.x * SNAKE_CELL + SNAKE_CELL / 2,
+        snakeFood.y * SNAKE_CELL + SNAKE_CELL / 2,
+        SNAKE_CELL * 0.38, 0, Math.PI * 2
+    );
+    snakeCtx.fill();
+
+    // Snake body and head
+    snake.forEach((part, index) => {
+        snakeCtx.fillStyle = index === 0 ? "#166534" : "#22c55e";
+        snakeCtx.fillRect(
+            part.x * SNAKE_CELL + 1,
+            part.y * SNAKE_CELL + 1,
+            SNAKE_CELL - 2,
+            SNAKE_CELL - 2
+        );
+    });
+
+    if (snakeOver) {
+        snakeCtx.fillStyle = "rgba(0, 0, 0, 0.68)";
+        snakeCtx.fillRect(25, 205, snakeCanvas.width - 50, 100);
+        snakeCtx.fillStyle = "white";
+        snakeCtx.textAlign = "center";
+        snakeCtx.font = "bold 25px Arial";
+        snakeCtx.fillText(
+            snake.length === SNAKE_COLS * SNAKE_ROWS ? "YOU WIN!" : "GAME OVER!",
+            snakeCanvas.width / 2, 247
+        );
+        snakeCtx.font = "16px Arial";
+        snakeCtx.fillText("Score: " + snakePoints, snakeCanvas.width / 2, 277);
+    }
 }
 
 // ============================================
